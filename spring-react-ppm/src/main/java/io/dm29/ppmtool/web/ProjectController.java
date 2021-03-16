@@ -1,41 +1,54 @@
 package io.dm29.ppmtool.web;
 
 import io.dm29.ppmtool.domain.Project;
+import io.dm29.ppmtool.services.MapValidationErrorService;
 import io.dm29.ppmtool.services.ProjectService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
-import org.springframework.validation.FieldError;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 @RestController
+@CrossOrigin
 @RequestMapping("/api/project")
+@RequiredArgsConstructor
 public class ProjectController {
 
-    @Autowired
     private ProjectService projectService;
+    private MapValidationErrorService mapValidationErrorService;
 
-    @PostMapping("")
-    public ResponseEntity<?> createNewProject(@Valid @RequestBody Project project, BindingResult result) {
-        
-        if(result.hasErrors()) {
-            Map<String, String> errorMap = new HashMap<>();
-            for(FieldError error : result.getFieldErrors()) {
-                errorMap.put(error.getField(), error.getDefaultMessage());
-            }
-            return new ResponseEntity<Map<String, String>>(errorMap, HttpStatus.BAD_REQUEST);
-        }
-        Project savedProject = projectService.saveOrUpdateProject(project);
-        return new ResponseEntity<Project>(savedProject, HttpStatus.CREATED);
+    public ProjectController(ProjectService projectService, MapValidationErrorService mapValidationErrorService) {
+        this.projectService = projectService;
+        this.mapValidationErrorService = mapValidationErrorService;
     }
 
+    @PostMapping
+    public ResponseEntity<?> createNewProject(@Valid @RequestBody Project project, BindingResult result) {
+
+        ResponseEntity<?> errorMap = mapValidationErrorService.MapValidationService(result);
+        if(errorMap != null) return errorMap;
+
+        Project savedProject = projectService.saveOrUpdateProject(project);
+        return new ResponseEntity<>(savedProject, HttpStatus.CREATED);
+    }
+
+    @GetMapping("/{projectId}")
+    public ResponseEntity<?> getProjectById(@PathVariable String projectId) {
+        Project project = projectService.findProjectByIdentifier(projectId.toUpperCase());
+        return new ResponseEntity<>(project, HttpStatus.OK);
+    }
+
+    @GetMapping("/all")
+    public Iterable<Project> getAllProjects() {
+        return projectService.findAllProject();
+    }
+
+    @DeleteMapping("/{projectId}")
+    public ResponseEntity<?> deleteProject(@PathVariable String projectId) {
+        projectService.deleteProjectByIdentifier(projectId);
+        return new ResponseEntity<>("Project with ID: '" + projectId + "' successfully deleted", HttpStatus.OK);
+    }
 }
